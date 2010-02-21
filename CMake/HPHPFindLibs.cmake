@@ -18,6 +18,11 @@
 # boost checks
 
 find_package(Boost 1.37.0 COMPONENTS system;program_options;filesystem REQUIRED)
+if (BOOST_VERSION EQUAL 104200)
+	# Boost bug #3942 prevents us using 1.42
+	message(FATAL_ERROR "Boost 1.42 is not compatible with HipHop")
+endif()
+
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
@@ -37,12 +42,12 @@ set(CMAKE_REQUIRED_LIBRARIES "${LIBEVENT_LIB}")
 CHECK_FUNCTION_EXISTS("evhttp_bind_socket_with_fd" HAVE_CUSTOM_LIBEVENT)
 if (NOT HAVE_CUSTOM_LIBEVENT)
 	message(SEND_ERROR "Custom libevent is required with HipHop patches")
+	unset(HAVE_CUSTOM_LIBEVENT CACHE)
+	unset(LIBEVENT_INCLUDE_DIR CACHE)
+	unset(LIBEVENT_LIB CACHE)
+	unset(LibEvent_FOUND CACHE)
 endif ()
 set(CMAKE_REQUIRED_LIBRARIES)
-
-# libafdt checks
-#find_package(LibAfdt REQUIRED)
-#include_directories(${LibAfdt_INCLUDE_DIR})
 
 # GD checks
 find_package(GD REQUIRED)
@@ -71,6 +76,10 @@ set(CMAKE_REQUIRED_LIBRARIES "${CURL_LIBRARIES}")
 CHECK_FUNCTION_EXISTS("curl_multi_select" HAVE_CUSTOM_CURL)
 if (NOT HAVE_CUSTOM_CURL)
         message(SEND_ERROR "Custom libcurl is required with HipHop patches ${HAVE_CUSTOM_CURL}")
+		unset(HAVE_CUSTOM_CURL CACHE)
+		unset(CURL_INCLUDE_DIR CACHE)
+		unset(CURL_LIBRARIES CACHE)
+		unset(CURL_FOUND CACHE)
 endif ()
 set(CMAKE_REQUIRED_LIBRARIES)
 
@@ -78,6 +87,9 @@ set(CMAKE_REQUIRED_LIBRARIES)
 find_package(LibXml2 REQUIRED)
 include_directories(${LIBXML2_INCLUDE_DIR})
 add_definitions(${LIBXML2_DEFINITIONS})
+
+find_package(EXPAT REQUIRED)
+include_directories(${EXPAT_INCLUDE_DIRS})
 
 # SQLite3 + timelib are bundled in HPHP sources
 include_directories("${HPHP_HOME}/src/third_party/libsqlite3")
@@ -94,6 +106,9 @@ find_package(ICU REQUIRED)
 if (ICU_FOUND)
 	if (ICU_VERSION VERSION_LESS "4.2")
 		message(SEND_ERROR "ICU is too old, found ${ICU_VERSION} and we need 4.2")
+		unset(ICU_FOUND CACHE)
+		unset(ICU_INCLUDE_DIRS CACHE)
+		unset(ICU_LIBRARIES CACHE)
 	endif (ICU_VERSION VERSION_LESS "4.2")
 	include_directories(${ICU_INCLUDE_DIRS})
 endif (ICU_FOUND)
@@ -142,13 +157,19 @@ FIND_LIBRARY (BINUTIL_LIB iberty)
 FIND_LIBRARY (DL_LIB dl)
 
 if (BFD_LIB STREQUAL "BFD_LIB-NOTFOUND")
-  message(FATAL_ERROR "You need to install binutils")
+	message(FATAL_ERROR "You need to install binutils")
 endif()
 
 if (BINUTIL_LIB STREQUAL "BINUTIL_LIB-NOTFOUND")
-  message(FATAL_ERROR "You need to install binutils")
+	message(FATAL_ERROR "You need to install binutils")
 endif()
 
+find_package(BISON REQUIRED)
+find_package(FLEX REQUIRED)
+
+if (${FLEX_VERSION} VERSION_LESS 2.5.33)
+	message(FATAL_ERROR "Flex is too old, found ${FLEX_VERSION} and we need 2.5.33")
+endif()
 
 include_directories(${HPHP_HOME}/src)
 include_directories(${HPHP_HOME}/src/lib/system/gen)
@@ -176,6 +197,7 @@ macro(hphp_link target)
 	target_link_libraries(${target} afdt)
 	target_link_libraries(${target} mbfl)
 	target_link_libraries(${target} ${LIBXML2_LIBRARIES})
+	target_link_libraries(${target} ${EXPAT_LIBRARY})
 	target_link_libraries(${target} ${ONIG_LIB})
 	target_link_libraries(${target} ${Mcrypt_LIB})
 	target_link_libraries(${target} ${GD_LIBRARY})
